@@ -259,3 +259,52 @@
   )
 )
 
+(define-read-only (get-user-metrics (user principal))
+  (map-get? user-metrics { user: user })
+)
+
+(define-read-only (get-fitness-goal (user principal) (goal-id uint))
+  (map-get? fitness-goals { user: user, goal-id: goal-id })
+)
+
+(define-read-only (get-workout-session (user principal) (session-id uint))
+  (map-get? workout-sessions { user: user, session-id: session-id })
+)
+
+(define-read-only (get-daily-metrics (user principal) (day uint))
+  (map-get? daily-metrics { user: user, day: day })
+)
+
+(define-read-only (calculate-bmi (user principal))
+  (match (map-get? user-metrics { user: user })
+    user-data 
+      (let
+        (
+          (weight-kg (get weight-kg user-data))
+          (height-m (/ (get height-cm user-data) u100))
+          (bmi (/ (* weight-kg u10000) (* height-m height-m)))
+        )
+        (some bmi)
+      )
+    none
+  )
+)
+
+(define-read-only (get-user-goal-count (user principal))
+  (fold count-user-goals (list u1 u2 u3 u4 u5 u6 u7 u8 u9 u10) u0)
+)
+
+(define-private (count-user-goals (goal-id uint) (count uint))
+  (if (is-some (map-get? fitness-goals { user: tx-sender, goal-id: goal-id }))
+    (+ count u1)
+    count
+  )
+)
+
+(define-read-only (get-total-users)
+  (var-get total-users)
+)
+
+(define-read-only (get-total-goals-achieved)
+  (var-get total-goals-achieved)
+)
