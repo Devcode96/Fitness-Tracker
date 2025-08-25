@@ -115,3 +115,76 @@
     (ok true)
   )
 )
+
+(define-public (log-workout-session 
+                (workout-type (string-ascii 30)) 
+                (duration-minutes uint) 
+                (calories-burned uint) 
+                (distance-km uint) 
+                (avg-heart-rate uint))
+  (let
+    (
+      (user-data (unwrap! (map-get? user-metrics { user: tx-sender }) ERR_UNAUTHORIZED))
+      (session-id (+ (get total-workouts user-data) u1))
+    )
+    (asserts! (and (> duration-minutes u0) (<= duration-minutes u300)) ERR_INVALID_METRIC)
+    (asserts! (<= calories-burned u2000) ERR_INVALID_METRIC)
+    (asserts! (<= distance-km u100) ERR_INVALID_METRIC)
+    (asserts! (and (>= avg-heart-rate u60) (<= avg-heart-rate u220)) ERR_INVALID_METRIC)
+    
+    (map-set workout-sessions
+      { user: tx-sender, session-id: session-id }
+      {
+        workout-type: workout-type,
+        duration-minutes: duration-minutes,
+        calories-burned: calories-burned,
+        distance-km: distance-km,
+        avg-heart-rate: avg-heart-rate,
+        session-date: block-height
+      }
+    )
+    
+    (map-set user-metrics
+      { user: tx-sender }
+      (merge user-data {
+        total-workouts: session-id,
+        total-distance-km: (+ (get total-distance-km user-data) distance-km),
+        total-calories-burned: (+ (get total-calories-burned user-data) calories-burned),
+        last-updated: block-height
+      })
+    )
+    
+    (ok session-id)
+  )
+)
+
+(define-public (log-daily-metrics 
+                (steps uint) 
+                (calories-burned uint) 
+                (active-minutes uint) 
+                (water-intake-ml uint) 
+                (sleep-hours uint))
+  (let
+    (
+      (current-day (/ block-height u144))
+    )
+    (asserts! (<= steps u100000) ERR_INVALID_METRIC)
+    (asserts! (<= calories-burned u5000) ERR_INVALID_METRIC)
+    (asserts! (<= active-minutes u1440) ERR_INVALID_METRIC)
+    (asserts! (<= water-intake-ml u5000) ERR_INVALID_METRIC)
+    (asserts! (<= sleep-hours u12) ERR_INVALID_METRIC)
+    
+    (map-set daily-metrics
+      { user: tx-sender, day: current-day }
+      {
+        steps: steps,
+        calories-burned: calories-burned,
+        active-minutes: active-minutes,
+        water-intake-ml: water-intake-ml,
+        sleep-hours: sleep-hours,
+        workout-sessions: u0
+      }
+    )
+    (ok true)
+  )
+)
