@@ -82,7 +82,7 @@
         height-cm: height-cm,
         body-fat-percent: u0,
         muscle-mass-kg: u0,
-        last-updated: block-height,
+        last-updated: stacks-block-height,
         total-workouts: u0,
         total-distance-km: u0,
         total-calories-burned: u0
@@ -109,7 +109,7 @@
         weight-kg: weight-kg,
         body-fat-percent: body-fat-percent,
         muscle-mass-kg: muscle-mass-kg,
-        last-updated: block-height
+        last-updated: stacks-block-height
       })
     )
     (ok true)
@@ -140,7 +140,7 @@
         calories-burned: calories-burned,
         distance-km: distance-km,
         avg-heart-rate: avg-heart-rate,
-        session-date: block-height
+        session-date: stacks-block-height
       }
     )
     
@@ -150,7 +150,7 @@
         total-workouts: session-id,
         total-distance-km: (+ (get total-distance-km user-data) distance-km),
         total-calories-burned: (+ (get total-calories-burned user-data) calories-burned),
-        last-updated: block-height
+        last-updated: stacks-block-height
       })
     )
     
@@ -158,42 +158,11 @@
   )
 )
 
-(define-public (log-daily-metrics 
-                (steps uint) 
-                (calories-burned uint) 
-                (active-minutes uint) 
-                (water-intake-ml uint) 
-                (sleep-hours uint))
-  (let
-    (
-      (current-day (/ block-height u144))
-    )
-    (asserts! (<= steps u100000) ERR_INVALID_METRIC)
-    (asserts! (<= calories-burned u5000) ERR_INVALID_METRIC)
-    (asserts! (<= active-minutes u1440) ERR_INVALID_METRIC)
-    (asserts! (<= water-intake-ml u5000) ERR_INVALID_METRIC)
-    (asserts! (<= sleep-hours u12) ERR_INVALID_METRIC)
-    
-    (map-set daily-metrics
-      { user: tx-sender, day: current-day }
-      {
-        steps: steps,
-        calories-burned: calories-burned,
-        active-minutes: active-minutes,
-        water-intake-ml: water-intake-ml,
-        sleep-hours: sleep-hours,
-        workout-sessions: u0
-      }
-    )
-    (ok true)
-  )
-)
-
 (define-public (set-fitness-goal (goal-type (string-ascii 20)) (target-value uint) (target-blocks uint))
   (let
     (
       (goal-id (+ (get-user-goal-count tx-sender) u1))
-      (target-date (+ block-height target-blocks))
+      (target-date (+ stacks-block-height target-blocks))
     )
     (asserts! (> target-value u0) ERR_INVALID_GOAL)
     (asserts! (> target-blocks u144) ERR_INVALID_GOAL) ;; At least 1 day
@@ -205,7 +174,7 @@
         target-value: target-value,
         current-value: u0,
         target-date: target-date,
-        created-block: block-height,
+        created-block: stacks-block-height,
         achieved: false,
         reward-claimed: false
       }
@@ -221,7 +190,7 @@
       (goal-achieved (>= current-value (get target-value goal)))
     )
     (asserts! (not (get achieved goal)) ERR_GOAL_ALREADY_ACHIEVED)
-    (asserts! (< block-height (get target-date goal)) ERR_INVALID_GOAL)
+    (asserts! (< stacks-block-height (get target-date goal)) ERR_INVALID_GOAL)
     
     (map-set fitness-goals
       { user: tx-sender, goal-id: goal-id }
@@ -256,6 +225,37 @@
     
     (try! (as-contract (stx-transfer? GOAL_REWARD tx-sender tx-sender)))
     (ok GOAL_REWARD)
+  )
+)
+
+(define-public (log-daily-metrics 
+                (steps uint) 
+                (calories-burned uint) 
+                (active-minutes uint) 
+                (water-intake-ml uint) 
+                (sleep-hours uint))
+  (let
+    (
+      (current-day (/ stacks-block-height u144))
+    )
+    (asserts! (<= steps u100000) ERR_INVALID_METRIC)
+    (asserts! (<= calories-burned u5000) ERR_INVALID_METRIC)
+    (asserts! (<= active-minutes u1440) ERR_INVALID_METRIC)
+    (asserts! (<= water-intake-ml u5000) ERR_INVALID_METRIC)
+    (asserts! (<= sleep-hours u12) ERR_INVALID_METRIC)
+    
+    (map-set daily-metrics
+      { user: tx-sender, day: current-day }
+      {
+        steps: steps,
+        calories-burned: calories-burned,
+        active-minutes: active-minutes,
+        water-intake-ml: water-intake-ml,
+        sleep-hours: sleep-hours,
+        workout-sessions: u0
+      }
+    )
+    (ok true)
   )
 )
 
