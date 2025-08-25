@@ -65,3 +65,53 @@
 )
 
 (define-data-var user-session-counters (list 1000 { user: principal, count: uint }) (list))
+
+(define-public (initialize-user-profile (weight-kg uint) (height-cm uint))
+  (let
+    (
+      (existing-profile (map-get? user-metrics { user: tx-sender }))
+    )
+    (asserts! (is-none existing-profile) ERR_UNAUTHORIZED)
+    (asserts! (and (> weight-kg u30) (< weight-kg u300)) ERR_INVALID_METRIC)
+    (asserts! (and (> height-cm u100) (< height-cm u250)) ERR_INVALID_METRIC)
+    
+    (map-set user-metrics
+      { user: tx-sender }
+      {
+        weight-kg: weight-kg,
+        height-cm: height-cm,
+        body-fat-percent: u0,
+        muscle-mass-kg: u0,
+        last-updated: block-height,
+        total-workouts: u0,
+        total-distance-km: u0,
+        total-calories-burned: u0
+      }
+    )
+    
+    (var-set total-users (+ (var-get total-users) u1))
+    (ok true)
+  )
+)
+
+(define-public (update-body-composition (weight-kg uint) (body-fat-percent uint) (muscle-mass-kg uint))
+  (let
+    (
+      (user-data (unwrap! (map-get? user-metrics { user: tx-sender }) ERR_UNAUTHORIZED))
+    )
+    (asserts! (and (> weight-kg u30) (< weight-kg u300)) ERR_INVALID_METRIC)
+    (asserts! (<= body-fat-percent u50) ERR_INVALID_METRIC)
+    (asserts! (< muscle-mass-kg weight-kg) ERR_INVALID_METRIC)
+    
+    (map-set user-metrics
+      { user: tx-sender }
+      (merge user-data {
+        weight-kg: weight-kg,
+        body-fat-percent: body-fat-percent,
+        muscle-mass-kg: muscle-mass-kg,
+        last-updated: block-height
+      })
+    )
+    (ok true)
+  )
+)
