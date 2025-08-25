@@ -188,3 +188,74 @@
     (ok true)
   )
 )
+
+(define-public (set-fitness-goal (goal-type (string-ascii 20)) (target-value uint) (target-blocks uint))
+  (let
+    (
+      (goal-id (+ (get-user-goal-count tx-sender) u1))
+      (target-date (+ block-height target-blocks))
+    )
+    (asserts! (> target-value u0) ERR_INVALID_GOAL)
+    (asserts! (> target-blocks u144) ERR_INVALID_GOAL) ;; At least 1 day
+    
+    (map-set fitness-goals
+      { user: tx-sender, goal-id: goal-id }
+      {
+        goal-type: goal-type,
+        target-value: target-value,
+        current-value: u0,
+        target-date: target-date,
+        created-block: block-height,
+        achieved: false,
+        reward-claimed: false
+      }
+    )
+    (ok goal-id)
+  )
+)
+
+(define-public (update-goal-progress (goal-id uint) (current-value uint))
+  (let
+    (
+      (goal (unwrap! (map-get? fitness-goals { user: tx-sender, goal-id: goal-id }) ERR_GOAL_NOT_FOUND))
+      (goal-achieved (>= current-value (get target-value goal)))
+    )
+    (asserts! (not (get achieved goal)) ERR_GOAL_ALREADY_ACHIEVED)
+    (asserts! (< block-height (get target-date goal)) ERR_INVALID_GOAL)
+    
+    (map-set fitness-goals
+      { user: tx-sender, goal-id: goal-id }
+      (merge goal {
+        current-value: current-value,
+        achieved: goal-achieved
+      })
+    )
+    
+    (if goal-achieved
+      (begin
+        (var-set total-goals-achieved (+ (var-get total-goals-achieved) u1))
+        (ok { achieved: true, reward-available: true })
+      )
+      (ok { achieved: false, reward-available: false })
+    )
+  )
+)
+
+(define-public (claim-goal-reward (goal-id uint))
+  (let
+    (
+      (goal (unwrap! (map-get? fitness-goals { user: tx-sender, goal-id: goal-id }) ERR_GOAL_NOT_FOUND))
+    )
+    (asserts! (get achieved goal) ERR_UNAUTHORIZED)
+    (asserts! (not (get reward-claimed goal)) ERR_GOAL_ALREADY_ACHIEVED)
+    
+    (map-set fitness-goals
+      { user: tx-sender, goal-id: goal-id }
+      (merge goal { reward-claimed: true })
+    )
+    
+    (try! (as-contract (stx-transfer? GOAL_REWARD tx-sender tx-sender)))
+    (ok GOAL_REWARD)
+  )
+)
+
